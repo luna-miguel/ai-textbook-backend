@@ -1,4 +1,5 @@
 from flask import Flask, request, redirect, url_for, send_file
+from flask_cors import CORS
 import json
 
 import os
@@ -11,6 +12,7 @@ import fpdf
 from openai import OpenAI
 
 app = Flask(__name__)
+CORS(app, origins="https://ai-textbook-cqz0.onrender.com")
 
 # Uploaded files go here
 UPLOAD_FOLDER = 'uploads'
