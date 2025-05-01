@@ -1,9 +1,10 @@
-from flask import Flask, request, redirect, url_for, send_file, session
+from flask import Flask, request, redirect, url_for, send_file
 from flask_cors import CORS
 import json
 import logging
 import os
 from werkzeug.utils import secure_filename
+from flask_caching import Cache
 
 from pypdf import PdfReader
 from docx import Document
@@ -13,10 +14,6 @@ from openai import OpenAI
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, methods=['POST'], allow_headers=['Content-Type'])
-
-SECRET_KEY = os.urandom(32)
-app.config['FLASK_SECRET_KEY'] = SECRET_KEY
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev')  # Add this for session support
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 10000))
@@ -33,6 +30,8 @@ ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt'}
 RESPONSE_FOLDER = 'responses'
 app.config['RESPONSE_FOLDER'] = RESPONSE_FOLDER
 
+text = []
+
 # Check i
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -44,6 +43,12 @@ os.makedirs(RESPONSE_FOLDER, exist_ok=True)
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Configure Flask-Caching
+cache = Cache(app, config={
+    'CACHE_TYPE': 'SimpleCache',
+    'CACHE_DEFAULT_TIMEOUT': 300  # 5 minutes timeout
+})
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -69,7 +74,7 @@ def upload():
             filename, extension = os.path.splitext(filepath)
             logger.info(f"Processing file with extension: {extension}")
 
-            text_chunks = []
+            text = []
             chunk = ""
 
             if extension == ".pdf":
@@ -78,18 +83,18 @@ def upload():
                     chunk += reader.pages[i].extract_text(extraction_mode="layout", layout_mode_space_vertically=False)
                     chunk = " ".join(chunk.split())
                     if len(chunk) > 2000:
-                        text_chunks.append(chunk)
+                        text.append(chunk)
                         chunk = ""   
-                text_chunks.append(chunk)
+                text.append(chunk)
 
             if extension == ".docx":
                 doc = Document(filepath)
                 for para in doc.paragraphs:
                     chunk += para.text
                     if len(chunk) > 2000:
-                        text_chunks.append(chunk)
+                        text.append(chunk)
                         chunk = ""
-                text_chunks.append(chunk)
+                text.append(chunk)
 
             if extension == ".txt":
                 f = open(filepath, "r")
@@ -97,13 +102,15 @@ def upload():
                 for line in lines:
                     chunk += line
                     if len(chunk) > 2000:
-                        text_chunks.append(chunk)
+                        text.append(chunk)
                         chunk = ""
-                text_chunks.append(chunk)
+                text.append(chunk)
             
-            # Store in session instead of global variable
-            session['text_chunks'] = text_chunks
-            return {'text': text_chunks}, 200
+            # Store text in cache
+            cache.set('processed_text', text)
+            logger.info(f"Stored {len(text)} chunks in cache")
+            
+            return {'text': text}, 200
 
         else:
             return {'error': 'Invalid file type'}, 422
@@ -124,14 +131,15 @@ Only return the resulting JSON file."
 @app.route('/generate_cards', methods=['POST'])
 def generate_cards():
     try:
-        text_chunks = session.get('text_chunks')
-        if not text_chunks:
-            logger.error("No text content available")
-            return {'error': 'No text content available'}, 400
+        # Get text from cache
+        text = cache.get('processed_text')
+        if not text:
+            logger.error("No text content available in cache")
+            return {'error': 'No text content available. Please upload a file first.'}, 400
 
-        logger.info(f"Processing {len(text_chunks)} chunks for flashcards")
+        logger.info(f"Processing {len(text)} chunks for flashcards")
         outputs = []
-        for chunk in text_chunks:
+        for chunk in text:
             response = client.responses.create(
                 model="gpt-4o-mini",
                 input=[
@@ -193,14 +201,15 @@ Only return the resulting JSON file."
 @app.route('/generate_quiz', methods=['POST'])
 def generate_quiz():
     try:
-        text_chunks = session.get('text_chunks')
-        if not text_chunks:
-            logger.error("No text content available")
-            return {'error': 'No text content available'}, 400
+        # Get text from cache
+        text = cache.get('processed_text')
+        if not text:
+            logger.error("No text content available in cache")
+            return {'error': 'No text content available. Please upload a file first.'}, 400
 
-        logger.info(f"Processing {len(text_chunks)} chunks for quiz")
+        logger.info(f"Processing {len(text)} chunks for quiz")
         outputs = []
-        for chunk in text_chunks:
+        for chunk in text:
             response = client.responses.create(
                 model="gpt-4o-mini",
                 input=[
