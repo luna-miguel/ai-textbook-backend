@@ -49,10 +49,9 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Configure Redis
-redis_client = redis.Redis(
-    host=os.getenv('REDIS_HOST', 'localhost'),
-    port=int(os.getenv('REDIS_PORT', 6379)),
-    password=os.getenv('REDIS_PASSWORD', None),
+redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+redis_client = redis.from_url(
+    redis_url,
     decode_responses=True  # This ensures we get strings back instead of bytes
 )
 
