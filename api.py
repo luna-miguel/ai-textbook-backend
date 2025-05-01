@@ -12,7 +12,7 @@ import fpdf
 from openai import OpenAI
 
 app = Flask(__name__)
-CORS(app, origins="https://ai-textbook-cqz0.onrender.com")
+CORS(app)
 
 # Uploaded files go here
 UPLOAD_FOLDER = 'uploads'
