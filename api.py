@@ -1,6 +1,5 @@
 from flask import Flask, request, redirect, url_for, send_file
 from flask_cors import CORS
-from flask_caching import Cache
 import json
 import logging
 import os
@@ -44,12 +43,6 @@ os.makedirs(RESPONSE_FOLDER, exist_ok=True)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Configure Flask-Caching
-cache = Cache(app, config={
-    'CACHE_TYPE': 'SimpleCache',
-    'CACHE_DEFAULT_TIMEOUT': 300
-})
-
 @app.route('/upload', methods=['POST'])
 def upload():
     try:
@@ -74,7 +67,7 @@ def upload():
             filename, extension = os.path.splitext(filepath)
             logger.info(f"Processing file with extension: {extension}")
 
-            text_chunks = []
+            processed_text = []
             chunk = ""
 
             if extension == ".pdf":
@@ -83,18 +76,18 @@ def upload():
                     chunk += reader.pages[i].extract_text(extraction_mode="layout", layout_mode_space_vertically=False)
                     chunk = " ".join(chunk.split())
                     if len(chunk) > 2000:
-                        text_chunks.append(chunk)
+                        processed_text.append(chunk)
                         chunk = ""   
-                text_chunks.append(chunk)
+                processed_text.append(chunk)
 
             if extension == ".docx":
                 doc = Document(filepath)
                 for para in doc.paragraphs:
                     chunk += para.text
                     if len(chunk) > 2000:
-                        text_chunks.append(chunk)
+                        processed_text.append(chunk)
                         chunk = ""
-                text_chunks.append(chunk)
+                processed_text.append(chunk)
 
             if extension == ".txt":
                 f = open(filepath, "r")
@@ -102,15 +95,11 @@ def upload():
                 for line in lines:
                     chunk += line
                     if len(chunk) > 2000:
-                        text_chunks.append(chunk)
+                        processed_text.append(chunk)
                         chunk = ""
-                text_chunks.append(chunk)
+                processed_text.append(chunk)
             
-            # Store the text chunks in cache
-            cache.set('text_chunks', text_chunks)
-            logger.info(f"Stored {len(text_chunks)} chunks in cache")
-            
-            return {'text': text_chunks}, 200
+            return {'text': processed_text}, 200
 
         else:
             return {'error': 'Invalid file type'}, 422
@@ -131,15 +120,15 @@ Only return the resulting JSON file."
 @app.route('/generate_cards', methods=['POST'])
 def generate_cards():
     try:
-        # Get text chunks from cache
-        text_chunks = cache.get('text_chunks')
-        if not text_chunks:
-            logger.error("No text content available in cache")
-            return {'error': 'No text content available'}, 400
+        data = request.get_json()
+        if not data or 'text' not in data:
+            logger.error("No text content in request")
+            return {'error': 'No text content provided'}, 400
 
-        logger.info(f"Processing {len(text_chunks)} chunks for flashcards")
+        text = data['text']
+        logger.info(f"Processing {len(text)} chunks for flashcards")
         outputs = []
-        for chunk in text_chunks:
+        for chunk in text:
             response = client.responses.create(
                 model="gpt-4o-mini",
                 input=[
@@ -201,15 +190,15 @@ Only return the resulting JSON file."
 @app.route('/generate_quiz', methods=['POST'])
 def generate_quiz():
     try:
-        # Get text chunks from cache
-        text_chunks = cache.get('text_chunks')
-        if not text_chunks:
-            logger.error("No text content available in cache")
-            return {'error': 'No text content available'}, 400
+        data = request.get_json()
+        if not data or 'text' not in data:
+            logger.error("No text content in request")
+            return {'error': 'No text content provided'}, 400
 
-        logger.info(f"Processing {len(text_chunks)} chunks for quiz")
+        text = data['text']
+        logger.info(f"Processing {len(text)} chunks for quiz")
         outputs = []
-        for chunk in text_chunks:
+        for chunk in text:
             response = client.responses.create(
                 model="gpt-4o-mini",
                 input=[
