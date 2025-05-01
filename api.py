@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, url_for, send_file
+from flask import Flask, request, redirect, url_for, send_file, session
 from flask_cors import CORS
 import json
 import logging
@@ -14,6 +14,10 @@ from openai import OpenAI
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, methods=['POST'], allow_headers=['Content-Type'])
 
+SECRET_KEY = os.urandom(32)
+app.config['FLASK_SECRET_KEY'] = SECRET_KEY
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev')  # Add this for session support
+
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 10000))
     app.run(debug=True, host='0.0.0.0', port=port)
@@ -28,8 +32,6 @@ ALLOWED_EXTENSIONS = {'pdf', 'docx', 'txt'}
 # ChatGPT responses go here (in JSON format)
 RESPONSE_FOLDER = 'responses'
 app.config['RESPONSE_FOLDER'] = RESPONSE_FOLDER
-
-text = []
 
 # Check i
 def allowed_file(filename):
@@ -67,29 +69,27 @@ def upload():
             filename, extension = os.path.splitext(filepath)
             logger.info(f"Processing file with extension: {extension}")
 
-            global text
-            text = []
+            text_chunks = []
             chunk = ""
 
             if extension == ".pdf":
                 reader = PdfReader(filepath)
                 for i in range(len(reader.pages)):
                     chunk += reader.pages[i].extract_text(extraction_mode="layout", layout_mode_space_vertically=False)
-                    chunk = " ".join(chunk.split()) # Seemingly fixes odd formatting of read string from PDF
+                    chunk = " ".join(chunk.split())
                     if len(chunk) > 2000:
-                        text.append(chunk)
+                        text_chunks.append(chunk)
                         chunk = ""   
-                text.append(chunk)
+                text_chunks.append(chunk)
 
             if extension == ".docx":
                 doc = Document(filepath)
                 for para in doc.paragraphs:
                     chunk += para.text
                     if len(chunk) > 2000:
-                        text.append(chunk)
+                        text_chunks.append(chunk)
                         chunk = ""
-                text.append(chunk)
-
+                text_chunks.append(chunk)
 
             if extension == ".txt":
                 f = open(filepath, "r")
@@ -97,11 +97,13 @@ def upload():
                 for line in lines:
                     chunk += line
                     if len(chunk) > 2000:
-                        text.append(chunk)
+                        text_chunks.append(chunk)
                         chunk = ""
-                text.append(chunk)
-        
-            return {'text': text}, 200
+                text_chunks.append(chunk)
+            
+            # Store in session instead of global variable
+            session['text_chunks'] = text_chunks
+            return {'text': text_chunks}, 200
 
         else:
             return {'error': 'Invalid file type'}, 422
@@ -122,14 +124,14 @@ Only return the resulting JSON file."
 @app.route('/generate_cards', methods=['POST'])
 def generate_cards():
     try:
-        global text
-        if not text:
+        text_chunks = session.get('text_chunks')
+        if not text_chunks:
             logger.error("No text content available")
             return {'error': 'No text content available'}, 400
 
-        logger.info(f"Processing {len(text)} chunks for flashcards")
+        logger.info(f"Processing {len(text_chunks)} chunks for flashcards")
         outputs = []
-        for chunk in text:
+        for chunk in text_chunks:
             response = client.responses.create(
                 model="gpt-4o-mini",
                 input=[
@@ -191,14 +193,14 @@ Only return the resulting JSON file."
 @app.route('/generate_quiz', methods=['POST'])
 def generate_quiz():
     try:
-        global text
-        if not text:
+        text_chunks = session.get('text_chunks')
+        if not text_chunks:
             logger.error("No text content available")
             return {'error': 'No text content available'}, 400
 
-        logger.info(f"Processing {len(text)} chunks for quiz")
+        logger.info(f"Processing {len(text_chunks)} chunks for quiz")
         outputs = []
-        for chunk in text:
+        for chunk in text_chunks:
             response = client.responses.create(
                 model="gpt-4o-mini",
                 input=[
