@@ -1,7 +1,7 @@
 from flask import Flask, request, redirect, url_for, send_file
 from flask_cors import CORS
 import json
-
+import logging
 import os
 from werkzeug.utils import secure_filename
 
@@ -35,63 +35,80 @@ text = []
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# Ensure upload and response directories exist
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(RESPONSE_FOLDER, exist_ok=True)
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 @app.route('/upload', methods=['POST'])
 def upload():
+    try:
+        if 'file' not in request.files:
+            logger.error("No file part in request")
+            return {'error': 'No file part in the request'}, 400
+        file = request.files['file']
+        if file.filename == '':
+            logger.error("No file selected")
+            return {'error': 'No file selected'}, 400
 
-    if 'file' not in request.files:
-        return {'error': 'No file part in the request'}, 400
-    file = request.files['file']
-    if file.filename == '':
-        return {'error': 'No file selected'}, 400
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            logger.info(f"Saving file to {filepath}")
+            file.save(filepath)
 
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            if not os.path.exists(filepath):
+                logger.error(f"File not found at {filepath}")
+                return {'error': 'File not found'}, 400
 
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        if not os.path.exists(filepath):
-            return {'error': 'File not found'}, 400
+            filename, extension = os.path.splitext(filepath)
+            logger.info(f"Processing file with extension: {extension}")
 
-        filename, extension = os.path.splitext(filepath)
+            global text
+            text = []
+            chunk = ""
 
-        global text
-        text = []
-        chunk = ""
+            if extension == ".pdf":
+                reader = PdfReader(filepath)
+                for i in range(len(reader.pages)):
+                    chunk += reader.pages[i].extract_text(extraction_mode="layout", layout_mode_space_vertically=False)
+                    chunk = " ".join(chunk.split()) # Seemingly fixes odd formatting of read string from PDF
+                    if len(chunk) > 2000:
+                        text.append(chunk)
+                        chunk = ""   
+                text.append(chunk)
 
-        if extension == ".pdf":
-            reader = PdfReader(filepath)
-            for i in range(len(reader.pages)):
-                chunk += reader.pages[i].extract_text(extraction_mode="layout", layout_mode_space_vertically=False)
-                chunk = " ".join(chunk.split()) # Seemingly fixes odd formatting of read string from PDF
-                if len(chunk) > 2000:
-                    text.append(chunk)
-                    chunk = ""   
-            text.append(chunk)
-
-        if extension == ".docx":
-            doc = Document(filepath)
-            for para in doc.paragraphs:
-                chunk += para.text
-                if len(chunk) > 2000:
-                    text.append(chunk)
-                    chunk = ""
-            text.append(chunk)
+            if extension == ".docx":
+                doc = Document(filepath)
+                for para in doc.paragraphs:
+                    chunk += para.text
+                    if len(chunk) > 2000:
+                        text.append(chunk)
+                        chunk = ""
+                text.append(chunk)
 
 
-        if extension == ".txt":
-            f = open(filepath, "r")
-            lines = f.readlines()
-            for line in lines:
-                chunk += line
-                if len(chunk) > 2000:
-                    text.append(chunk)
-                    chunk = ""
-            text.append(chunk)
+            if extension == ".txt":
+                f = open(filepath, "r")
+                lines = f.readlines()
+                for line in lines:
+                    chunk += line
+                    if len(chunk) > 2000:
+                        text.append(chunk)
+                        chunk = ""
+                text.append(chunk)
         
-        return {'text': text}, 200
+            return {'text': text}, 200
 
-    else:
-        return {'error': 'Invalid file type'}, 422
+        else:
+            return {'error': 'Invalid file type'}, 422
+
+    except Exception as e:
+        logger.error(f"Error in upload: {str(e)}")
+        return {'error': str(e)}, 500
 
 client = OpenAI( api_key=os.environ.get("OPENAI_API_KEY") )
 
@@ -104,9 +121,14 @@ Only return the resulting JSON file."
 
 @app.route('/generate_cards', methods=['POST'])
 def generate_cards():
-    global text
-    outputs = []
     try:
+        global text
+        if not text:
+            logger.error("No text content available")
+            return {'error': 'No text content available'}, 400
+
+        logger.info(f"Processing {len(text)} chunks for flashcards")
+        outputs = []
         for chunk in text:
             response = client.responses.create(
                 model="gpt-4o-mini",
@@ -154,7 +176,8 @@ def generate_cards():
         return res
 
     except Exception as e:
-        return {'error': 'Something went wrong. Please try again.'}, 400
+        logger.error(f"Error in generate_cards: {str(e)}")
+        return {'error': str(e)}, 500
 
 prompt_quiz = "You are to use the following text to generate a multiple-choice style quiz. \
 Each quiz question should have exactly four answer choices, with one correct and the other three incorrect. \
@@ -167,10 +190,14 @@ Only return the resulting JSON file."
 
 @app.route('/generate_quiz', methods=['POST'])
 def generate_quiz():
-    global text
-    outputs = []
-
     try:
+        global text
+        if not text:
+            logger.error("No text content available")
+            return {'error': 'No text content available'}, 400
+
+        logger.info(f"Processing {len(text)} chunks for quiz")
+        outputs = []
         for chunk in text:
             response = client.responses.create(
                 model="gpt-4o-mini",
@@ -222,7 +249,8 @@ def generate_quiz():
         return res
 
     except Exception as e:
-        return {'error': 'Something went wrong. Please try again.'}, 400
+        logger.error(f"Error in generate_quiz: {str(e)}")
+        return {'error': str(e)}, 500
 
 @app.route('/export', methods=['POST'])
 def export():
@@ -286,3 +314,7 @@ def export():
     pdf.output(res)
 
     return send_file(res, as_attachment=True, download_name="export.pdf")
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    return {'status': 'healthy'}, 200
