@@ -1,11 +1,10 @@
 from flask import Flask, request, redirect, url_for, send_file
 from flask_cors import CORS
+from flask_caching import Cache
 import json
 import logging
 import os
 from werkzeug.utils import secure_filename
-import redis
-from dotenv import load_dotenv
 
 from pypdf import PdfReader
 from docx import Document
@@ -45,15 +44,11 @@ os.makedirs(RESPONSE_FOLDER, exist_ok=True)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
-
-# Configure Redis
-redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-redis_client = redis.from_url(
-    redis_url,
-    decode_responses=True  # This ensures we get strings back instead of bytes
-)
+# Configure Flask-Caching
+cache = Cache(app, config={
+    'CACHE_TYPE': 'SimpleCache',
+    'CACHE_DEFAULT_TIMEOUT': 300
+})
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -79,7 +74,7 @@ def upload():
             filename, extension = os.path.splitext(filepath)
             logger.info(f"Processing file with extension: {extension}")
 
-            text = []
+            text_chunks = []
             chunk = ""
 
             if extension == ".pdf":
@@ -88,18 +83,18 @@ def upload():
                     chunk += reader.pages[i].extract_text(extraction_mode="layout", layout_mode_space_vertically=False)
                     chunk = " ".join(chunk.split())
                     if len(chunk) > 2000:
-                        text.append(chunk)
+                        text_chunks.append(chunk)
                         chunk = ""   
-                text.append(chunk)
+                text_chunks.append(chunk)
 
             if extension == ".docx":
                 doc = Document(filepath)
                 for para in doc.paragraphs:
                     chunk += para.text
                     if len(chunk) > 2000:
-                        text.append(chunk)
+                        text_chunks.append(chunk)
                         chunk = ""
-                text.append(chunk)
+                text_chunks.append(chunk)
 
             if extension == ".txt":
                 f = open(filepath, "r")
@@ -107,19 +102,15 @@ def upload():
                 for line in lines:
                     chunk += line
                     if len(chunk) > 2000:
-                        text.append(chunk)
+                        text_chunks.append(chunk)
                         chunk = ""
-                text.append(chunk)
+                text_chunks.append(chunk)
             
-            # Store text in Redis
-            try:
-                redis_client.setex('processed_text', 300, json.dumps(text))  # 5 minutes expiry
-                logger.info(f"Stored {len(text)} chunks in Redis")
-            except redis.RedisError as e:
-                logger.error(f"Redis error: {str(e)}")
-                return {'error': 'Failed to store processed text'}, 500
+            # Store the text chunks in cache
+            cache.set('text_chunks', text_chunks)
+            logger.info(f"Stored {len(text_chunks)} chunks in cache")
             
-            return {'text': text}, 200
+            return {'text': text_chunks}, 200
 
         else:
             return {'error': 'Invalid file type'}, 422
@@ -140,20 +131,15 @@ Only return the resulting JSON file."
 @app.route('/generate_cards', methods=['POST'])
 def generate_cards():
     try:
-        # Get text from Redis
-        try:
-            text_json = redis_client.get('processed_text')
-            if not text_json:
-                logger.error("No text content available in Redis")
-                return {'error': 'No text content available. Please upload a file first.'}, 400
-            text = json.loads(text_json)
-        except redis.RedisError as e:
-            logger.error(f"Redis error: {str(e)}")
-            return {'error': 'Failed to retrieve processed text'}, 500
+        # Get text chunks from cache
+        text_chunks = cache.get('text_chunks')
+        if not text_chunks:
+            logger.error("No text content available in cache")
+            return {'error': 'No text content available'}, 400
 
-        logger.info(f"Processing {len(text)} chunks for flashcards")
+        logger.info(f"Processing {len(text_chunks)} chunks for flashcards")
         outputs = []
-        for chunk in text:
+        for chunk in text_chunks:
             response = client.responses.create(
                 model="gpt-4o-mini",
                 input=[
@@ -215,20 +201,15 @@ Only return the resulting JSON file."
 @app.route('/generate_quiz', methods=['POST'])
 def generate_quiz():
     try:
-        # Get text from Redis
-        try:
-            text_json = redis_client.get('processed_text')
-            if not text_json:
-                logger.error("No text content available in Redis")
-                return {'error': 'No text content available. Please upload a file first.'}, 400
-            text = json.loads(text_json)
-        except redis.RedisError as e:
-            logger.error(f"Redis error: {str(e)}")
-            return {'error': 'Failed to retrieve processed text'}, 500
+        # Get text chunks from cache
+        text_chunks = cache.get('text_chunks')
+        if not text_chunks:
+            logger.error("No text content available in cache")
+            return {'error': 'No text content available'}, 400
 
-        logger.info(f"Processing {len(text)} chunks for quiz")
+        logger.info(f"Processing {len(text_chunks)} chunks for quiz")
         outputs = []
-        for chunk in text:
+        for chunk in text_chunks:
             response = client.responses.create(
                 model="gpt-4o-mini",
                 input=[
