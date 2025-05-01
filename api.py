@@ -12,7 +12,7 @@ import fpdf
 from openai import OpenAI
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}}, methods=['POST'], allow_headers=['Content-Type'])
 
 # Uploaded files go here
 UPLOAD_FOLDER = 'uploads'
