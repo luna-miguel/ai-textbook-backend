@@ -4,7 +4,8 @@ import json
 import logging
 import os
 from werkzeug.utils import secure_filename
-from flask_caching import Cache
+import redis
+from dotenv import load_dotenv
 
 from pypdf import PdfReader
 from docx import Document
@@ -44,11 +45,16 @@ os.makedirs(RESPONSE_FOLDER, exist_ok=True)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Configure Flask-Caching
-cache = Cache(app, config={
-    'CACHE_TYPE': 'SimpleCache',
-    'CACHE_DEFAULT_TIMEOUT': 300  # 5 minutes timeout
-})
+# Load environment variables
+load_dotenv()
+
+# Configure Redis
+redis_client = redis.Redis(
+    host=os.getenv('REDIS_HOST', 'localhost'),
+    port=int(os.getenv('REDIS_PORT', 6379)),
+    password=os.getenv('REDIS_PASSWORD', None),
+    decode_responses=True  # This ensures we get strings back instead of bytes
+)
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -106,9 +112,13 @@ def upload():
                         chunk = ""
                 text.append(chunk)
             
-            # Store text in cache
-            cache.set('processed_text', text)
-            logger.info(f"Stored {len(text)} chunks in cache")
+            # Store text in Redis
+            try:
+                redis_client.setex('processed_text', 300, json.dumps(text))  # 5 minutes expiry
+                logger.info(f"Stored {len(text)} chunks in Redis")
+            except redis.RedisError as e:
+                logger.error(f"Redis error: {str(e)}")
+                return {'error': 'Failed to store processed text'}, 500
             
             return {'text': text}, 200
 
@@ -131,11 +141,16 @@ Only return the resulting JSON file."
 @app.route('/generate_cards', methods=['POST'])
 def generate_cards():
     try:
-        # Get text from cache
-        text = cache.get('processed_text')
-        if not text:
-            logger.error("No text content available in cache")
-            return {'error': 'No text content available. Please upload a file first.'}, 400
+        # Get text from Redis
+        try:
+            text_json = redis_client.get('processed_text')
+            if not text_json:
+                logger.error("No text content available in Redis")
+                return {'error': 'No text content available. Please upload a file first.'}, 400
+            text = json.loads(text_json)
+        except redis.RedisError as e:
+            logger.error(f"Redis error: {str(e)}")
+            return {'error': 'Failed to retrieve processed text'}, 500
 
         logger.info(f"Processing {len(text)} chunks for flashcards")
         outputs = []
@@ -201,11 +216,16 @@ Only return the resulting JSON file."
 @app.route('/generate_quiz', methods=['POST'])
 def generate_quiz():
     try:
-        # Get text from cache
-        text = cache.get('processed_text')
-        if not text:
-            logger.error("No text content available in cache")
-            return {'error': 'No text content available. Please upload a file first.'}, 400
+        # Get text from Redis
+        try:
+            text_json = redis_client.get('processed_text')
+            if not text_json:
+                logger.error("No text content available in Redis")
+                return {'error': 'No text content available. Please upload a file first.'}, 400
+            text = json.loads(text_json)
+        except redis.RedisError as e:
+            logger.error(f"Redis error: {str(e)}")
+            return {'error': 'Failed to retrieve processed text'}, 500
 
         logger.info(f"Processing {len(text)} chunks for quiz")
         outputs = []
