@@ -14,6 +14,10 @@ from openai import OpenAI
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, methods=['POST'], allow_headers=['Content-Type'])
 
+if __name__ == "__main__":
+    port = int(os.environ.get('PORT', 10000))
+    app.run(debug=True, host='0.0.0.0', port=port)
+
 # Uploaded files go here
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
