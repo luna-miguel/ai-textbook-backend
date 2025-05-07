@@ -257,6 +257,7 @@ def sanitize_text(text):
     """Replace problematic characters with their ASCII equivalents."""
     replacements = {
         "'": "'",  # Smart single quote to regular single quote
+        "’": "'",
         '"': '"',  # Smart double quote to regular double quote
         '–': '-',  # En dash to hyphen
         '—': '--', # Em dash to double hyphen
