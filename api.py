@@ -278,7 +278,6 @@ def export():
         pdf.set_font("Arial", size=12)
         pages = 1
 
-        # Header function
         def add_header():
             pdf.set_font("Arial", size=10)
             pdf.cell(0, 10, f"{pages}", ln=True, align="R")
@@ -312,11 +311,7 @@ def export():
                 pdf.set_font("Arial")
                 for j in range(len(questions)):
                     answer_text = sanitize_text(f"{questions[j]}")
-                    # Print the letter (a., b., etc.) with indentation, then answer text flush
-                    x_before = pdf.get_x()
-                    y_before = pdf.get_y()
-                    pdf.cell(15, 10, f"{choices[j]}.")
-                    pdf.set_xy(x_before + 15, y_before)
+                    pdf.cell(15, 10, f"{choices[j]}.", ln=0)
                     pdf.multi_cell(0, 10, answer_text)
                 pdf.ln(8)
 
