@@ -259,57 +259,66 @@ def export():
     if not data:
         return {"error": "No data received"}, 400
 
-    # Create PDF in memory
-    pdf = fpdf.FPDF(format='letter')
-    pdf.set_auto_page_break(auto=True, margin=15)
+    # Create PDF in memory with more robust configuration
+    pdf = fpdf.FPDF(format='letter', unit='pt')  # Using points instead of mm
+    pdf.set_auto_page_break(auto=True, margin=72)  # 1 inch margin
     pdf.set_font("Times", size=12)
-    pdf.set_left_margin(20)  # Increased left margin
-    pdf.set_right_margin(20)  # Added right margin
+    pdf.set_left_margin(72)  # 1 inch left margin
+    pdf.set_right_margin(72)  # 1 inch right margin
+    pdf.set_top_margin(72)  # 1 inch top margin
     pages = 0
 
     choices = ["a", "b", "c", "d"]
-    indent = " " * 8
+    indent = " " * 4  # Reduced indent spacing
     for i in range(len(data)):
         if i % 5 == 0:
             pdf.add_page()
             pages += 1
-            pdf.multi_cell(0, 1, txt=f"{pages}", align="R")
+            pdf.set_font("Times", size=10)  # Smaller font for page numbers
+            pdf.multi_cell(0, 12, txt=f"{pages}", align="R")
             pdf.set_font("Times", size=12, style="B")
-            pdf.multi_cell(0, 5, txt="Created with AI Textbook Quiz Creator", align="L")
-            pdf.multi_cell(0, 5, txt="Name: _____________________", align="L")
-            pdf.multi_cell(0, 5, txt="Date: _____________________", align="L")
+            pdf.multi_cell(0, 12, txt="Created with AI Textbook Quiz Creator", align="L")
+            pdf.multi_cell(0, 12, txt="Name: _____________________", align="L")
+            pdf.multi_cell(0, 12, txt="Date: _____________________", align="L")
             pdf.set_font("Times", size=12)
-            pdf.multi_cell(0, 10)
+            pdf.multi_cell(0, 12)
 
         item = data[i]
         obj, questions = item[0], item[1]
 
+        # Ensure question text is properly formatted
+        question_text = f"{i+1}. {obj['question']}"
         pdf.set_font("Times", size=12, style="B")
-        pdf.multi_cell(0, 5, f"{i+1}. {obj['question']}", align="L")
-        pdf.multi_cell(0, 5)
+        pdf.multi_cell(0, 12, txt=question_text, align="L")
+        pdf.multi_cell(0, 12)
         pdf.set_font("Times", size=12)
 
-        for i in range(len(questions)):
-            pdf.multi_cell(0, 5, f"{indent + choices[i]}.\t{questions[i]}")
+        # Format answer choices
+        for j in range(len(questions)):
+            answer_text = f"{indent}{choices[j]}.\t{questions[j]}"
+            pdf.multi_cell(0, 12, txt=answer_text)
 
-        pdf.multi_cell(100, 10)
+        pdf.multi_cell(0, 24)  # Increased spacing between questions
 
+    # Answer key section
     for i in range(len(data)):
         if i % 15 == 0:
             pdf.add_page()
             pages += 1
-            pdf.multi_cell(0, 1, txt=f"{pages}", align="R")
+            pdf.set_font("Times", size=10)
+            pdf.multi_cell(0, 12, txt=f"{pages}", align="R")
             pdf.set_font("Times", size=12, style="B")
-            pdf.multi_cell(0, 5, txt="Created with AI Textbook Quiz Creator", align="L")
-            pdf.multi_cell(0, 5, txt="ANSWER KEY", align="L")
+            pdf.multi_cell(0, 12, txt="Created with AI Textbook Quiz Creator", align="L")
+            pdf.multi_cell(0, 12, txt="ANSWER KEY", align="L")
             pdf.set_font("Times", size=12)
-            pdf.multi_cell(0, 10)
+            pdf.multi_cell(0, 12)
 
         item = data[i]
         obj, questions = item[0], item[1]
 
+        answer_text = f"{i+1}: {indent}({choices[questions.index(obj['correct_answer'])]})"
         pdf.set_font("Times", size=12, style="B")
-        pdf.multi_cell(0, 8, f"{i+1}: {indent} ({choices[questions.index(obj['correct_answer'])]})", align="L")
+        pdf.multi_cell(0, 12, txt=answer_text, align="L")
         pdf.set_font("Times", size=12)
 
     # Save PDF to BytesIO object
