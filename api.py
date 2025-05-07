@@ -256,15 +256,11 @@ def generate_quiz():
 def sanitize_text(text):
     """Replace problematic characters with their ASCII equivalents."""
     replacements = {
-        """: "'",  # Smart single quote to regular single quote
-        """: "'",  # Smart double quote to regular double quote
-        """: '"',  # Smart double quote to regular double quote
-        "–": "-",  # En dash to hyphen
-        "—": "--", # Em dash to double hyphen
-        "…": "...", # Ellipsis to three dots
-        """: "'",  # Another type of smart single quote
-        """: "'",  # Another type of smart single quote
-        """: "'",  # Another type of smart single quote
+        "'": "'",  # Smart single quote to regular single quote
+        '"': '"',  # Smart double quote to regular double quote
+        '–': '-',  # En dash to hyphen
+        '—': '--', # Em dash to double hyphen
+        '…': '...', # Ellipsis to three dots
     }
     for old, new in replacements.items():
         text = text.replace(old, new)
@@ -277,16 +273,13 @@ def export():
         return {"error": "No data received"}, 400
 
     try:
-        # Create PDF with basic configuration
         pdf = fpdf.FPDF(format='letter')
         pdf.add_page()
-        
-        # Font setup - using built-in Arial font
         pdf.set_font("Arial", size=12)
         pages = 1
-        
-        # Header with page number
-        try:
+
+        # Header function
+        def add_header():
             pdf.set_font("Arial", size=10)
             pdf.cell(0, 10, f"{pages}", ln=True, align="R")
             pdf.set_font("Arial", size=12, style="B")
@@ -294,26 +287,17 @@ def export():
             pdf.cell(0, 10, "Name: _____________________", ln=True)
             pdf.cell(0, 10, "Date: _____________________", ln=True)
             pdf.ln(10)
-        except Exception as e:
-            logger.error(f"Error in header rendering: {str(e)}")
-            return {"error": f"PDF generation failed at header: {str(e)}"}, 500
 
+        add_header()
         choices = ["a", "b", "c", "d"]
-        
-        # Process questions
+
         for i in range(len(data)):
             try:
-                # Add new page every 3 questions
-                if i > 0 and i % 3 == 0:
+                # Add new page every 2 questions
+                if i > 0 and i % 2 == 0:
                     pdf.add_page()
                     pages += 1
-                    pdf.set_font("Arial", size=10)
-                    pdf.cell(0, 10, f"{pages}", ln=True, align="R")
-                    pdf.set_font("Arial", size=12, style="B")
-                    pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
-                    pdf.cell(0, 10, "Name: _____________________", ln=True)
-                    pdf.cell(0, 10, "Date: _____________________", ln=True)
-                    pdf.ln(10)
+                    add_header()
 
                 item = data[i]
                 obj, questions = item[0], item[1]
@@ -321,30 +305,20 @@ def export():
                 # Question
                 pdf.set_font("Arial", style="B")
                 question_text = sanitize_text(f"{i+1}. {obj['question']}")
-                # Calculate width for question text
-                question_width = pdf.w - 40  # Account for margins
-                pdf.multi_cell(question_width, 10, question_text)
-                pdf.ln(5)
+                pdf.multi_cell(0, 10, question_text)
+                pdf.ln(3)
 
-                # Answer choices with indentation
+                # Answer choices: letter (indented), then answer text flush with question
                 pdf.set_font("Arial")
                 for j in range(len(questions)):
-                    answer_text = sanitize_text(f"{choices[j]}. {questions[j]}")
-                    # Calculate width for answer text
-                    answer_width = pdf.w - 60  # Account for margins and indentation
-                    # First line with indentation
-                    pdf.cell(20, 10, "")  # Indentation
-                    # Split text into lines that fit the width
-                    lines = pdf.multi_cell(answer_width, 10, answer_text, split_only=True)
-                    # Print first line
-                    pdf.cell(20, 10, "")  # Indentation
-                    pdf.cell(answer_width, 10, lines[0], ln=True)
-                    # Print remaining lines with proper indentation
-                    for line in lines[1:]:
-                        pdf.cell(20, 10, "")  # Indentation
-                        pdf.cell(answer_width, 10, line, ln=True)
-                
-                pdf.ln(10)  # Reduced spacing between questions
+                    answer_text = sanitize_text(f"{questions[j]}")
+                    # Print the letter (a., b., etc.) with indentation, then answer text flush
+                    x_before = pdf.get_x()
+                    y_before = pdf.get_y()
+                    pdf.cell(15, 10, f"{choices[j]}.")
+                    pdf.set_xy(x_before + 15, y_before)
+                    pdf.multi_cell(0, 10, answer_text)
+                pdf.ln(8)
 
             except Exception as e:
                 logger.error(f"Error processing question {i}: {str(e)}")
@@ -353,42 +327,27 @@ def export():
         # Answer key
         pdf.add_page()
         pages += 1
-        pdf.set_font("Arial", size=10)
-        pdf.cell(0, 10, f"{pages}", ln=True, align="R")
-        pdf.set_font("Arial", size=12, style="B")
-        pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
-        pdf.cell(0, 10, "Name: _____________________", ln=True)
-        pdf.cell(0, 10, "Date: _____________________", ln=True)
-        pdf.ln(10)
+        add_header()
         pdf.cell(0, 10, "ANSWER KEY", ln=True)
         pdf.ln(10)
 
         for i in range(len(data)):
             try:
-                # Add new page every 15 answers
                 if i > 0 and i % 15 == 0:
                     pdf.add_page()
                     pages += 1
-                    pdf.set_font("Arial", size=10)
-                    pdf.cell(0, 10, f"{pages}", ln=True, align="R")
-                    pdf.set_font("Arial", size=12, style="B")
-                    pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
-                    pdf.cell(0, 10, "Name: _____________________", ln=True)
-                    pdf.cell(0, 10, "Date: _____________________", ln=True)
-                    pdf.ln(10)
+                    add_header()
                     pdf.cell(0, 10, "ANSWER KEY", ln=True)
                     pdf.ln(10)
-
                 item = data[i]
                 obj, questions = item[0], item[1]
                 answer_text = sanitize_text(f"{i+1}: ({choices[questions.index(obj['correct_answer'])]})")
-                pdf.cell(20, 10, "")  # Indentation
+                pdf.cell(20, 10, "")
                 pdf.cell(0, 10, answer_text, ln=True)
             except Exception as e:
                 logger.error(f"Error processing answer key {i}: {str(e)}")
                 return {"error": f"PDF generation failed at answer key {i}: {str(e)}"}, 500
 
-        # Save PDF to BytesIO object
         pdf_bytes = BytesIO()
         pdf.output(pdf_bytes)
         pdf_bytes.seek(0)
