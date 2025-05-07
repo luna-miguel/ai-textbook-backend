@@ -264,15 +264,16 @@ def export():
         pdf = fpdf.FPDF(format='letter')
         pdf.add_page()
         
-        # Font setup
-        pdf.set_font("Times", size=12)
+        # Font setup - using DejaVuSans for Unicode support
+        pdf.add_font('DejaVu', '', 'DejaVuSansCondensed.ttf', uni=True)
+        pdf.set_font('DejaVu', size=12)
         pages = 1
         
         # Header with page number
         try:
-            pdf.set_font("Times", size=10)
+            pdf.set_font('DejaVu', size=10)
             pdf.cell(0, 10, f"{pages}", ln=True, align="R")
-            pdf.set_font("Times", size=12, style="B")
+            pdf.set_font('DejaVu', size=12, style="B")
             pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
             pdf.cell(0, 10, "Name: _____________________", ln=True)
             pdf.cell(0, 10, "Date: _____________________", ln=True)
@@ -290,9 +291,9 @@ def export():
                 if i > 0 and i % 3 == 0:
                     pdf.add_page()
                     pages += 1
-                    pdf.set_font("Times", size=10)
+                    pdf.set_font('DejaVu', size=10)
                     pdf.cell(0, 10, f"{pages}", ln=True, align="R")
-                    pdf.set_font("Times", size=12, style="B")
+                    pdf.set_font('DejaVu', size=12, style="B")
                     pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
                     pdf.cell(0, 10, "Name: _____________________", ln=True)
                     pdf.cell(0, 10, "Date: _____________________", ln=True)
@@ -302,12 +303,12 @@ def export():
                 obj, questions = item[0], item[1]
 
                 # Question
-                pdf.set_font("Times", style="B")
+                pdf.set_font('DejaVu', style="B")
                 pdf.cell(0, 10, f"{i+1}. {obj['question']}", ln=True)
                 pdf.ln(5)
 
                 # Answer choices with indentation
-                pdf.set_font("Times")
+                pdf.set_font('DejaVu')
                 for j in range(len(questions)):
                     pdf.cell(20, 10, "")  # Indentation
                     pdf.cell(0, 10, f"{choices[j]}. {questions[j]}", ln=True)
@@ -321,9 +322,9 @@ def export():
         # Answer key
         pdf.add_page()
         pages += 1
-        pdf.set_font("Times", size=10)
+        pdf.set_font('DejaVu', size=10)
         pdf.cell(0, 10, f"{pages}", ln=True, align="R")
-        pdf.set_font("Times", size=12, style="B")
+        pdf.set_font('DejaVu', size=12, style="B")
         pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
         pdf.cell(0, 10, "Name: _____________________", ln=True)
         pdf.cell(0, 10, "Date: _____________________", ln=True)
@@ -337,9 +338,9 @@ def export():
                 if i > 0 and i % 15 == 0:
                     pdf.add_page()
                     pages += 1
-                    pdf.set_font("Times", size=10)
+                    pdf.set_font('DejaVu', size=10)
                     pdf.cell(0, 10, f"{pages}", ln=True, align="R")
-                    pdf.set_font("Times", size=12, style="B")
+                    pdf.set_font('DejaVu', size=12, style="B")
                     pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
                     pdf.cell(0, 10, "Name: _____________________", ln=True)
                     pdf.cell(0, 10, "Date: _____________________", ln=True)
