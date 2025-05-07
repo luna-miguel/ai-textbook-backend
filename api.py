@@ -259,79 +259,78 @@ def export():
     if not data:
         return {"error": "No data received"}, 400
 
-    # Create PDF in memory with more robust configuration
-    pdf = fpdf.FPDF(format='letter', unit='pt')  # Using points instead of mm
-    pdf.set_auto_page_break(auto=True, margin=72)  # 1 inch margin
-    pdf.set_font("Times", size=12)
-    pdf.set_left_margin(72)  # 1 inch left margin
-    pdf.set_right_margin(72)  # 1 inch right margin
-    pdf.set_top_margin(72)  # 1 inch top margin
-    pages = 0
+    try:
+        # Create PDF with minimal configuration
+        pdf = fpdf.FPDF()
+        pdf.add_page()
+        
+        # Basic font setup
+        pdf.set_font("Arial", size=12)
+        
+        # Test basic text rendering first
+        try:
+            pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
+            pdf.cell(0, 10, "Name: _____________________", ln=True)
+            pdf.cell(0, 10, "Date: _____________________", ln=True)
+            pdf.ln(10)
+        except Exception as e:
+            logger.error(f"Error in header rendering: {str(e)}")
+            return {"error": f"PDF generation failed at header: {str(e)}"}, 500
 
-    choices = ["a", "b", "c", "d"]
-    indent = " " * 4  # Reduced indent spacing
-    for i in range(len(data)):
-        if i % 5 == 0:
-            pdf.add_page()
-            pages += 1
-            pdf.set_font("Times", size=10)  # Smaller font for page numbers
-            pdf.multi_cell(0, 12, txt=f"{pages}", align="R")
-            pdf.set_font("Times", size=12, style="B")
-            pdf.multi_cell(0, 12, txt="Created with AI Textbook Quiz Creator", align="L")
-            pdf.multi_cell(0, 12, txt="Name: _____________________", align="L")
-            pdf.multi_cell(0, 12, txt="Date: _____________________", align="L")
-            pdf.set_font("Times", size=12)
-            pdf.multi_cell(0, 12)
+        choices = ["a", "b", "c", "d"]
+        
+        # Process questions
+        for i in range(len(data)):
+            try:
+                item = data[i]
+                obj, questions = item[0], item[1]
 
-        item = data[i]
-        obj, questions = item[0], item[1]
+                # Question
+                pdf.set_font("Arial", style="B")
+                pdf.cell(0, 10, f"{i+1}. {obj['question']}", ln=True)
+                pdf.ln(5)
 
-        # Ensure question text is properly formatted
-        question_text = f"{i+1}. {obj['question']}"
-        pdf.set_font("Times", size=12, style="B")
-        pdf.multi_cell(0, 12, txt=question_text, align="L")
-        pdf.multi_cell(0, 12)
-        pdf.set_font("Times", size=12)
+                # Answer choices
+                pdf.set_font("Arial")
+                for j in range(len(questions)):
+                    pdf.cell(0, 10, f"{choices[j]}. {questions[j]}", ln=True)
+                
+                pdf.ln(10)
 
-        # Format answer choices
-        for j in range(len(questions)):
-            answer_text = f"{indent}{choices[j]}.\t{questions[j]}"
-            pdf.multi_cell(0, 12, txt=answer_text)
+            except Exception as e:
+                logger.error(f"Error processing question {i}: {str(e)}")
+                return {"error": f"PDF generation failed at question {i}: {str(e)}"}, 500
 
-        pdf.multi_cell(0, 24)  # Increased spacing between questions
+        # Answer key
+        pdf.add_page()
+        pdf.set_font("Arial", style="B")
+        pdf.cell(0, 10, "ANSWER KEY", ln=True)
+        pdf.ln(10)
 
-    # Answer key section
-    for i in range(len(data)):
-        if i % 15 == 0:
-            pdf.add_page()
-            pages += 1
-            pdf.set_font("Times", size=10)
-            pdf.multi_cell(0, 12, txt=f"{pages}", align="R")
-            pdf.set_font("Times", size=12, style="B")
-            pdf.multi_cell(0, 12, txt="Created with AI Textbook Quiz Creator", align="L")
-            pdf.multi_cell(0, 12, txt="ANSWER KEY", align="L")
-            pdf.set_font("Times", size=12)
-            pdf.multi_cell(0, 12)
+        for i in range(len(data)):
+            try:
+                item = data[i]
+                obj, questions = item[0], item[1]
+                pdf.cell(0, 10, f"{i+1}: ({choices[questions.index(obj['correct_answer'])]})", ln=True)
+            except Exception as e:
+                logger.error(f"Error processing answer key {i}: {str(e)}")
+                return {"error": f"PDF generation failed at answer key {i}: {str(e)}"}, 500
 
-        item = data[i]
-        obj, questions = item[0], item[1]
+        # Save PDF to BytesIO object
+        pdf_bytes = BytesIO()
+        pdf.output(pdf_bytes)
+        pdf_bytes.seek(0)
 
-        answer_text = f"{i+1}: {indent}({choices[questions.index(obj['correct_answer'])]})"
-        pdf.set_font("Times", size=12, style="B")
-        pdf.multi_cell(0, 12, txt=answer_text, align="L")
-        pdf.set_font("Times", size=12)
+        return send_file(
+            pdf_bytes,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name='export.pdf'
+        )
 
-    # Save PDF to BytesIO object
-    pdf_bytes = BytesIO()
-    pdf.output(pdf_bytes)
-    pdf_bytes.seek(0)
-
-    return send_file(
-        pdf_bytes,
-        mimetype='application/pdf',
-        as_attachment=True,
-        download_name='export.pdf'
-    )
+    except Exception as e:
+        logger.error(f"Error in PDF generation: {str(e)}")
+        return {"error": f"PDF generation failed: {str(e)}"}, 500
 
 @app.route('/health', methods=['GET'])
 def health_check():
