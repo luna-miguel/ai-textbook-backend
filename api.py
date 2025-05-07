@@ -289,6 +289,9 @@ def export():
 
         add_header()
         choices = ["a", "b", "c", "d"]
+        indent = 15
+        left_margin = pdf.l_margin
+        usable_width = pdf.w - pdf.r_margin - (left_margin + indent + 5)  # 5 for letter width
 
         for i in range(len(data)):
             try:
@@ -311,8 +314,12 @@ def export():
                 pdf.set_font("Arial")
                 for j in range(len(questions)):
                     answer_text = sanitize_text(f"{questions[j]}")
-                    pdf.cell(15, 10, f"{choices[j]}.", ln=0)
-                    pdf.multi_cell(0, 10, answer_text)
+                    # Move to left margin + indent
+                    pdf.set_x(left_margin + indent)
+                    pdf.cell(10, 10, f"{choices[j]}.", ln=0)
+                    # Move to left margin + indent + letter width
+                    pdf.set_x(left_margin + indent + 10)
+                    pdf.multi_cell(usable_width, 10, answer_text)
                 pdf.ln(8)
 
             except Exception as e:
