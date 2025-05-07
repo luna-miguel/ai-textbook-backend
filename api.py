@@ -253,6 +253,23 @@ def generate_quiz():
         logger.error(f"Error in generate_quiz: {str(e)}")
         return {'error': str(e)}, 500
 
+def sanitize_text(text):
+    """Replace problematic characters with their ASCII equivalents."""
+    replacements = {
+        """: "'",  # Smart single quote to regular single quote
+        """: "'",  # Smart double quote to regular double quote
+        """: '"',  # Smart double quote to regular double quote
+        "–": "-",  # En dash to hyphen
+        "—": "--", # Em dash to double hyphen
+        "…": "...", # Ellipsis to three dots
+        """: "'",  # Another type of smart single quote
+        """: "'",  # Another type of smart single quote
+        """: "'",  # Another type of smart single quote
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return text
+
 @app.route('/export', methods=['POST'])
 def export():
     data = request.get_json()
@@ -273,9 +290,9 @@ def export():
             pdf.set_font("Arial", size=10)
             pdf.cell(0, 10, f"{pages}", ln=True, align="R")
             pdf.set_font("Arial", size=12, style="B")
-            pdf.multi_cell(0, 10, "Created with AI Textbook Quiz Creator")
-            pdf.multi_cell(0, 10, "Name: _____________________")
-            pdf.multi_cell(0, 10, "Date: _____________________")
+            pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
+            pdf.cell(0, 10, "Name: _____________________", ln=True)
+            pdf.cell(0, 10, "Date: _____________________", ln=True)
             pdf.ln(10)
         except Exception as e:
             logger.error(f"Error in header rendering: {str(e)}")
@@ -293,9 +310,9 @@ def export():
                     pdf.set_font("Arial", size=10)
                     pdf.cell(0, 10, f"{pages}", ln=True, align="R")
                     pdf.set_font("Arial", size=12, style="B")
-                    pdf.multi_cell(0, 10, "Created with AI Textbook Quiz Creator")
-                    pdf.multi_cell(0, 10, "Name: _____________________")
-                    pdf.multi_cell(0, 10, "Date: _____________________")
+                    pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
+                    pdf.cell(0, 10, "Name: _____________________", ln=True)
+                    pdf.cell(0, 10, "Date: _____________________", ln=True)
                     pdf.ln(10)
 
                 item = data[i]
@@ -304,26 +321,28 @@ def export():
                 # Question
                 pdf.set_font("Arial", style="B")
                 question_text = sanitize_text(f"{i+1}. {obj['question']}")
-                pdf.multi_cell(0, 10, question_text)
+                # Calculate width for question text
+                question_width = pdf.w - 40  # Account for margins
+                pdf.multi_cell(question_width, 10, question_text)
                 pdf.ln(5)
 
                 # Answer choices with indentation
                 pdf.set_font("Arial")
                 for j in range(len(questions)):
                     answer_text = sanitize_text(f"{choices[j]}. {questions[j]}")
+                    # Calculate width for answer text
+                    answer_width = pdf.w - 60  # Account for margins and indentation
                     # First line with indentation
                     pdf.cell(20, 10, "")  # Indentation
-                    # Calculate remaining width for text
-                    remaining_width = pdf.w - 40  # Account for margins
                     # Split text into lines that fit the width
-                    lines = pdf.multi_cell(remaining_width, 10, answer_text, split_only=True)
+                    lines = pdf.multi_cell(answer_width, 10, answer_text, split_only=True)
                     # Print first line
                     pdf.cell(20, 10, "")  # Indentation
-                    pdf.cell(remaining_width, 10, lines[0], ln=True)
+                    pdf.cell(answer_width, 10, lines[0], ln=True)
                     # Print remaining lines with proper indentation
                     for line in lines[1:]:
                         pdf.cell(20, 10, "")  # Indentation
-                        pdf.cell(remaining_width, 10, line, ln=True)
+                        pdf.cell(answer_width, 10, line, ln=True)
                 
                 pdf.ln(10)  # Reduced spacing between questions
 
@@ -337,11 +356,11 @@ def export():
         pdf.set_font("Arial", size=10)
         pdf.cell(0, 10, f"{pages}", ln=True, align="R")
         pdf.set_font("Arial", size=12, style="B")
-        pdf.multi_cell(0, 10, "Created with AI Textbook Quiz Creator")
-        pdf.multi_cell(0, 10, "Name: _____________________")
-        pdf.multi_cell(0, 10, "Date: _____________________")
+        pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
+        pdf.cell(0, 10, "Name: _____________________", ln=True)
+        pdf.cell(0, 10, "Date: _____________________", ln=True)
         pdf.ln(10)
-        pdf.multi_cell(0, 10, "ANSWER KEY")
+        pdf.cell(0, 10, "ANSWER KEY", ln=True)
         pdf.ln(10)
 
         for i in range(len(data)):
@@ -353,18 +372,18 @@ def export():
                     pdf.set_font("Arial", size=10)
                     pdf.cell(0, 10, f"{pages}", ln=True, align="R")
                     pdf.set_font("Arial", size=12, style="B")
-                    pdf.multi_cell(0, 10, "Created with AI Textbook Quiz Creator")
-                    pdf.multi_cell(0, 10, "Name: _____________________")
-                    pdf.multi_cell(0, 10, "Date: _____________________")
+                    pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
+                    pdf.cell(0, 10, "Name: _____________________", ln=True)
+                    pdf.cell(0, 10, "Date: _____________________", ln=True)
                     pdf.ln(10)
-                    pdf.multi_cell(0, 10, "ANSWER KEY")
+                    pdf.cell(0, 10, "ANSWER KEY", ln=True)
                     pdf.ln(10)
 
                 item = data[i]
                 obj, questions = item[0], item[1]
                 answer_text = sanitize_text(f"{i+1}: ({choices[questions.index(obj['correct_answer'])]})")
                 pdf.cell(20, 10, "")  # Indentation
-                pdf.multi_cell(0, 10, answer_text)
+                pdf.cell(0, 10, answer_text, ln=True)
             except Exception as e:
                 logger.error(f"Error processing answer key {i}: {str(e)}")
                 return {"error": f"PDF generation failed at answer key {i}: {str(e)}"}, 500
