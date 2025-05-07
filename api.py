@@ -275,13 +275,13 @@ def export():
     try:
         pdf = fpdf.FPDF(format='letter')
         pdf.add_page()
-        pdf.set_font("Arial", size=12)
+        pdf.set_font("Times", size=12)
         pages = 1
 
         def add_header():
-            pdf.set_font("Arial", size=10)
+            pdf.set_font("Times", size=10)
             pdf.cell(0, 10, f"{pages}", ln=True, align="R")
-            pdf.set_font("Arial", size=12, style="B")
+            pdf.set_font("Times", size=12, style="B")
             pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
             pdf.cell(0, 10, "Name: _____________________", ln=True)
             pdf.cell(0, 10, "Date: _____________________", ln=True)
@@ -305,13 +305,13 @@ def export():
                 obj, questions = item[0], item[1]
 
                 # Question
-                pdf.set_font("Arial", style="B")
+                pdf.set_font("Times", style="B")
                 question_text = sanitize_text(f"{i+1}. {obj['question']}")
                 pdf.multi_cell(0, 10, question_text)
                 pdf.ln(3)
 
                 # Answer choices: letter (indented), then answer text flush with question
-                pdf.set_font("Arial")
+                pdf.set_font("Times")
                 for j in range(len(questions)):
                     answer_text = sanitize_text(f"{questions[j]}")
                     # Move to left margin + indent
