@@ -286,8 +286,8 @@ def export():
         # Process questions
         for i in range(len(data)):
             try:
-                # Add new page every 5 questions
-                if i > 0 and i % 5 == 0:
+                # Add new page every 3 questions
+                if i > 0 and i % 3 == 0:
                     pdf.add_page()
                     pages += 1
                     pdf.set_font("Times", size=10)
@@ -312,7 +312,7 @@ def export():
                     pdf.cell(20, 10, "")  # Indentation
                     pdf.cell(0, 10, f"{choices[j]}. {questions[j]}", ln=True)
                 
-                pdf.ln(15)  # Increased spacing between questions
+                pdf.ln(10)  # Reduced spacing between questions
 
             except Exception as e:
                 logger.error(f"Error processing question {i}: {str(e)}")
@@ -324,6 +324,10 @@ def export():
         pdf.set_font("Times", size=10)
         pdf.cell(0, 10, f"{pages}", ln=True, align="R")
         pdf.set_font("Times", size=12, style="B")
+        pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
+        pdf.cell(0, 10, "Name: _____________________", ln=True)
+        pdf.cell(0, 10, "Date: _____________________", ln=True)
+        pdf.ln(10)
         pdf.cell(0, 10, "ANSWER KEY", ln=True)
         pdf.ln(10)
 
@@ -336,6 +340,10 @@ def export():
                     pdf.set_font("Times", size=10)
                     pdf.cell(0, 10, f"{pages}", ln=True, align="R")
                     pdf.set_font("Times", size=12, style="B")
+                    pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
+                    pdf.cell(0, 10, "Name: _____________________", ln=True)
+                    pdf.cell(0, 10, "Date: _____________________", ln=True)
+                    pdf.ln(10)
                     pdf.cell(0, 10, "ANSWER KEY", ln=True)
                     pdf.ln(10)
 
