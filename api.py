@@ -4,6 +4,7 @@ import json
 import logging
 import os
 from werkzeug.utils import secure_filename
+from io import BytesIO
 
 from pypdf import PdfReader
 from docx import Document
@@ -258,33 +259,35 @@ def export():
     if not data:
         return {"error": "No data received"}, 400
 
-    pdf = fpdf.FPDF(format='letter') 
-    pdf.set_font("Times", size=12) 
-    pdf.set_left_margin(10)
+    # Create PDF in memory
+    pdf = fpdf.FPDF(format='letter')
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_font("Times", size=12)
+    pdf.set_left_margin(20)  # Increased left margin
+    pdf.set_right_margin(20)  # Added right margin
     pages = 0
 
     choices = ["a", "b", "c", "d"]
     indent = " " * 8
     for i in range(len(data)):
-
         if i % 5 == 0:
-            pdf.add_page() # Create new page
+            pdf.add_page()
             pages += 1
             pdf.multi_cell(0, 1, txt=f"{pages}", align="R")
-            pdf.set_font("Times", size=12, style="B") 
+            pdf.set_font("Times", size=12, style="B")
             pdf.multi_cell(0, 5, txt="Created with AI Textbook Quiz Creator", align="L")
             pdf.multi_cell(0, 5, txt="Name: _____________________", align="L")
             pdf.multi_cell(0, 5, txt="Date: _____________________", align="L")
-            pdf.set_font("Times", size=12) 
+            pdf.set_font("Times", size=12)
             pdf.multi_cell(0, 10)
-        
+
         item = data[i]
         obj, questions = item[0], item[1]
 
-        pdf.set_font("Times", size=12, style="B") 
-        pdf.multi_cell(0,5, f"{i+1}. {obj['question']}", align="L")
-        pdf.multi_cell(0,5)
-        pdf.set_font("Times", size=12) 
+        pdf.set_font("Times", size=12, style="B")
+        pdf.multi_cell(0, 5, f"{i+1}. {obj['question']}", align="L")
+        pdf.multi_cell(0, 5)
+        pdf.set_font("Times", size=12)
 
         for i in range(len(questions)):
             pdf.multi_cell(0, 5, f"{indent + choices[i]}.\t{questions[i]}")
@@ -293,25 +296,33 @@ def export():
 
     for i in range(len(data)):
         if i % 15 == 0:
-            pdf.add_page() # Create new page
+            pdf.add_page()
             pages += 1
             pdf.multi_cell(0, 1, txt=f"{pages}", align="R")
-            pdf.set_font("Times", size=12, style="B") 
+            pdf.set_font("Times", size=12, style="B")
             pdf.multi_cell(0, 5, txt="Created with AI Textbook Quiz Creator", align="L")
             pdf.multi_cell(0, 5, txt="ANSWER KEY", align="L")
-            pdf.set_font("Times", size=12) 
+            pdf.set_font("Times", size=12)
             pdf.multi_cell(0, 10)
-            
+
         item = data[i]
         obj, questions = item[0], item[1]
 
-        pdf.set_font("Times", size=12, style="B") 
+        pdf.set_font("Times", size=12, style="B")
         pdf.multi_cell(0, 8, f"{i+1}: {indent} ({choices[questions.index(obj['correct_answer'])]})", align="L")
-        pdf.set_font("Times", size=12) 
+        pdf.set_font("Times", size=12)
 
-    pdf.output(name='export.pdf', dest='D')
+    # Save PDF to BytesIO object
+    pdf_bytes = BytesIO()
+    pdf.output(pdf_bytes)
+    pdf_bytes.seek(0)
 
-    return {"message": "File downloaded"}
+    return send_file(
+        pdf_bytes,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name='export.pdf'
+    )
 
 @app.route('/health', methods=['GET'])
 def health_check():
