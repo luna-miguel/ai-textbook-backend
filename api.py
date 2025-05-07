@@ -270,43 +270,43 @@ def export():
         if i % 5 == 0:
             pdf.add_page() # Create new page
             pages += 1
-            pdf.multi_cell(0, 0, txt=f"{pages}", align="R")
+            pdf.multi_cell(1, 1, txt=f"{pages}", align="R")
             pdf.set_font("Times", size=12, style="B") 
-            pdf.multi_cell(0, 5, txt="Created with AI Textbook Quiz Creator", align="L")
-            pdf.multi_cell(0, 5, txt="Name: _____________________", align="L")
-            pdf.multi_cell(0, 5, txt="Date: _____________________", align="L")
+            pdf.multi_cell(1, 5, txt="Created with AI Textbook Quiz Creator", align="L")
+            pdf.multi_cell(1, 5, txt="Name: _____________________", align="L")
+            pdf.multi_cell(1, 5, txt="Date: _____________________", align="L")
             pdf.set_font("Times", size=12) 
-            pdf.multi_cell(0, 10)
+            pdf.multi_cell(1, 10)
         
         item = data[i]
         obj, questions = item[0], item[1]
 
         pdf.set_font("Times", size=12, style="B") 
-        pdf.multi_cell(0,5, f"{i+1}. {obj['question']}", align="L")
-        pdf.multi_cell(0,5)
+        pdf.multi_cell(1,5, f"{i+1}. {obj['question']}", align="L")
+        pdf.multi_cell(1,5)
         pdf.set_font("Times", size=12) 
 
         for i in range(len(questions)):
-            pdf.multi_cell(0, 5, f"{indent + choices[i]}.\t{questions[i]}")
+            pdf.multi_cell(1, 5, f"{indent + choices[i]}.\t{questions[i]}")
 
-        pdf.multi_cell(0, 10)
+        pdf.multi_cell(1, 10)
 
     for i in range(len(data)):
         if i % 15 == 0:
             pdf.add_page() # Create new page
             pages += 1
-            pdf.multi_cell(0, 0, txt=f"{pages}", align="R")
+            pdf.multi_cell(1, 1, txt=f"{pages}", align="R")
             pdf.set_font("Times", size=12, style="B") 
-            pdf.multi_cell(0, 5, txt="Created with AI Textbook Quiz Creator", align="L")
-            pdf.multi_cell(0, 5, txt="ANSWER KEY", align="L")
+            pdf.multi_cell(1, 5, txt="Created with AI Textbook Quiz Creator", align="L")
+            pdf.multi_cell(1, 5, txt="ANSWER KEY", align="L")
             pdf.set_font("Times", size=12) 
-            pdf.multi_cell(0, 10)
+            pdf.multi_cell(1, 10)
             
         item = data[i]
         obj, questions = item[0], item[1]
 
         pdf.set_font("Times", size=12, style="B") 
-        pdf.multi_cell(0, 8, f"{i+1}: {indent} ({choices[questions.index(obj['correct_answer'])]})", align="L")
+        pdf.multi_cell(1, 8, f"{i+1}: {indent} ({choices[questions.index(obj['correct_answer'])]})", align="L")
         pdf.set_font("Times", size=12) 
 
 
