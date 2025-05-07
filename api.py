@@ -260,15 +260,19 @@ def export():
         return {"error": "No data received"}, 400
 
     try:
-        # Create PDF with minimal configuration
-        pdf = fpdf.FPDF()
+        # Create PDF with basic configuration
+        pdf = fpdf.FPDF(format='letter')
         pdf.add_page()
         
-        # Basic font setup
-        pdf.set_font("Arial", size=12)
+        # Font setup
+        pdf.set_font("Times", size=12)
+        pages = 1
         
-        # Test basic text rendering first
+        # Header with page number
         try:
+            pdf.set_font("Times", size=10)
+            pdf.cell(0, 10, f"{pages}", ln=True, align="R")
+            pdf.set_font("Times", size=12, style="B")
             pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
             pdf.cell(0, 10, "Name: _____________________", ln=True)
             pdf.cell(0, 10, "Date: _____________________", ln=True)
@@ -282,20 +286,33 @@ def export():
         # Process questions
         for i in range(len(data)):
             try:
+                # Add new page every 5 questions
+                if i > 0 and i % 5 == 0:
+                    pdf.add_page()
+                    pages += 1
+                    pdf.set_font("Times", size=10)
+                    pdf.cell(0, 10, f"{pages}", ln=True, align="R")
+                    pdf.set_font("Times", size=12, style="B")
+                    pdf.cell(0, 10, "Created with AI Textbook Quiz Creator", ln=True)
+                    pdf.cell(0, 10, "Name: _____________________", ln=True)
+                    pdf.cell(0, 10, "Date: _____________________", ln=True)
+                    pdf.ln(10)
+
                 item = data[i]
                 obj, questions = item[0], item[1]
 
                 # Question
-                pdf.set_font("Arial", style="B")
+                pdf.set_font("Times", style="B")
                 pdf.cell(0, 10, f"{i+1}. {obj['question']}", ln=True)
                 pdf.ln(5)
 
-                # Answer choices
-                pdf.set_font("Arial")
+                # Answer choices with indentation
+                pdf.set_font("Times")
                 for j in range(len(questions)):
+                    pdf.cell(20, 10, "")  # Indentation
                     pdf.cell(0, 10, f"{choices[j]}. {questions[j]}", ln=True)
                 
-                pdf.ln(10)
+                pdf.ln(15)  # Increased spacing between questions
 
             except Exception as e:
                 logger.error(f"Error processing question {i}: {str(e)}")
@@ -303,14 +320,28 @@ def export():
 
         # Answer key
         pdf.add_page()
-        pdf.set_font("Arial", style="B")
+        pages += 1
+        pdf.set_font("Times", size=10)
+        pdf.cell(0, 10, f"{pages}", ln=True, align="R")
+        pdf.set_font("Times", size=12, style="B")
         pdf.cell(0, 10, "ANSWER KEY", ln=True)
         pdf.ln(10)
 
         for i in range(len(data)):
             try:
+                # Add new page every 15 answers
+                if i > 0 and i % 15 == 0:
+                    pdf.add_page()
+                    pages += 1
+                    pdf.set_font("Times", size=10)
+                    pdf.cell(0, 10, f"{pages}", ln=True, align="R")
+                    pdf.set_font("Times", size=12, style="B")
+                    pdf.cell(0, 10, "ANSWER KEY", ln=True)
+                    pdf.ln(10)
+
                 item = data[i]
                 obj, questions = item[0], item[1]
+                pdf.cell(20, 10, "")  # Indentation
                 pdf.cell(0, 10, f"{i+1}: ({choices[questions.index(obj['correct_answer'])]})", ln=True)
             except Exception as e:
                 logger.error(f"Error processing answer key {i}: {str(e)}")
