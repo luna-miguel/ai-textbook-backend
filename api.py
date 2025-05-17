@@ -78,8 +78,9 @@ def upload():
                     chunk = " ".join(chunk.split())
                     if len(chunk) > 2000:
                         processed_text.append(chunk)
-                        chunk = ""   
-                processed_text.append(chunk)
+                        chunk = ""
+                if len(chunk) > 100:
+                    processed_text.append(chunk)
 
             if extension == ".docx":
                 doc = Document(filepath)
@@ -88,7 +89,8 @@ def upload():
                     if len(chunk) > 2000:
                         processed_text.append(chunk)
                         chunk = ""
-                processed_text.append(chunk)
+                if len(chunk) > 100:
+                    processed_text.append(chunk)
 
             if extension == ".txt":
                 f = open(filepath, "r")
@@ -98,7 +100,8 @@ def upload():
                     if len(chunk) > 2000:
                         processed_text.append(chunk)
                         chunk = ""
-                processed_text.append(chunk)
+                if len(chunk) > 100:
+                    processed_text.append(chunk)
             
             return {'text': processed_text}, 200
 
