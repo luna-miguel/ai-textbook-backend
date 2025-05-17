@@ -185,7 +185,7 @@ Answer choices for each question should be ONE full sentence long, at most. Keep
 When making questions about certain concepts in the text, make sure the questions can be solved using ONLY information from the given text. \
 Do not use information from any other sources besides the given text to create the quiz questions. \
 Do NOT create questions unrelated to material in the text. Questions must be able to be answered solely on the provided text. \
-Do NOT create questions related to literary analysis of the text itself. The quiz is meant to test knowledge. \
+Do NOT create questions related to the context of the text itself or literary analysis of the text itself. The quiz is ONLY meant to test knowledge of the material. \
 Generate as many questions as necessary, not too few but also not too many as to make them redundant. \
 Return the questions and answer choices in JSON format, with objects 'question', 'correct_answer', and the array 'incorrect_answer'. \
 Only return the resulting JSON file."
